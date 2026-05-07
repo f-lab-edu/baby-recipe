@@ -325,6 +325,10 @@ function openDetail(id) {
   const r = state.recipes.find(r => r.id === id);
   if (!r) return;
 
+  const isOwner = r.ownerId === auth.currentUser.uid;
+  document.getElementById('detail-edit-btn').classList.toggle('hidden', !isOwner);
+  document.getElementById('delete-section').classList.toggle('hidden', !isOwner);
+
   const favBtn = document.getElementById('detail-favorite-btn');
   favBtn.textContent = r.isFavorite ? '⭐' : '☆';
 
