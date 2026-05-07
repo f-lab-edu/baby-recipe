@@ -1,6 +1,6 @@
 {
-  "name": "나의 유아식 레시피북",
-  "short_name": "유아식 레시피",
+  "name": "이유식 노트",
+  "short_name": "이유식 노트",
   "description": "아이를 위한 레시피를 기록하고 관리하세요",
   "start_url": "./index.html",
   "display": "standalone",
