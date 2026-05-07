@@ -139,8 +139,23 @@ function isWebView() {
   return false;
 }
 
+function getWebViewPlatform() {
+  if (!isWebView()) return null;
+  const ua = navigator.userAgent;
+  if (/Android/.test(ua)) return 'android';
+  if (/iPhone|iPad/.test(ua)) return 'ios';
+  return 'android';
+}
+
 if (isWebView()) {
-  document.getElementById('webview-warning').classList.remove('hidden');
+  const ua = navigator.userAgent;
+  if (/KAKAOTALK/.test(ua)) {
+    location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}`;
+  } else if (/Android/.test(ua)) {
+    location.href = `intent://${location.href.replace(/https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+  } else {
+    document.getElementById('webview-warning').classList.remove('hidden');
+  }
 }
 
 async function signInWithGoogle() {
