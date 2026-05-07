@@ -169,7 +169,14 @@ async function copyCurrentUrl() {
 
 async function signInWithGoogle() {
   if (isWebView()) {
-    toast('외부 브라우저(Chrome 등)에서 열어주세요');
+    const ua = navigator.userAgent;
+    if (/KAKAOTALK/.test(ua)) {
+      location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}`;
+    } else if (/Android/.test(ua)) {
+      location.href = `intent://${location.href.replace(/https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+    } else {
+      copyCurrentUrl();
+    }
     return;
   }
   const provider = new firebase.auth.GoogleAuthProvider();
