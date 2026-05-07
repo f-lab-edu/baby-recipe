@@ -682,6 +682,7 @@ async function saveRecipe() {
     else state.recipes.unshift({ id: recipeId, ...data });
 
     state.editingRecipe = null;
+    if (saveBtn) saveBtn.disabled = false;
     toast('저장했어요');
     openDetail(recipeId);
   } catch (err) {
