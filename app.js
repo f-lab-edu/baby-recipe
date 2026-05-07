@@ -158,6 +158,15 @@ if (isWebView()) {
   }
 }
 
+async function copyCurrentUrl() {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    toast('URL이 복사됐어요. Safari 주소창에 붙여넣으세요.');
+  } catch {
+    toast('복사에 실패했어요. 주소창에서 직접 복사해 주세요.');
+  }
+}
+
 async function signInWithGoogle() {
   if (isWebView()) {
     toast('외부 브라우저(Chrome 등)에서 열어주세요');
