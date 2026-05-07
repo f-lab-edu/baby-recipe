@@ -282,12 +282,14 @@ function renderHome() {
     const cover = r.coverPhoto ? `<img src="${r.coverPhoto}" class="w-full h-28 object-cover" />` : `<div class="w-full h-28 bg-gradient-to-br from-orange-50 to-amber-100 flex items-center justify-center text-3xl">🍲</div>`;
     const fav = r.isFavorite ? '<span class="absolute top-2 right-2 text-yellow-400 text-sm">⭐</span>' : '';
     const tags = (r.tags || []).slice(0, 2).map(t => `<span class="text-[10px] tag-chip px-1.5 py-0.5 rounded-full">#${esc(t)}</span>`).join('');
+    const isOwner = r.ownerId === auth.currentUser.uid;
+    const authorBadge = !isOwner && r.ownerNickname ? `<span class="text-[10px] text-gray-400">${esc(r.ownerNickname)}</span>` : '';
     return `
       <div onclick="openDetail('${r.id}')" class="cursor-pointer bg-white rounded-2xl overflow-hidden card-shadow">
         <div class="relative">${cover}${fav}</div>
         <div class="p-2.5">
           <div class="text-sm font-semibold text-gray-800 truncate">${esc(r.name) || '제목 없음'}</div>
-          <div class="flex gap-1 mt-1 flex-wrap">${tags}</div>
+          <div class="flex gap-1 mt-1 flex-wrap items-center">${tags}${authorBadge}</div>
         </div>
       </div>
     `;
