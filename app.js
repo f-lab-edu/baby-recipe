@@ -106,11 +106,10 @@ async function saveNickname() {
   }
 }
 
-// 내 레시피만 실시간 구독. 탐색 탭 공개 피드는 실시간 아닌 진입 시 1회 조회(fetchPublicRecipes).
+// 전체 레시피 실시간 구독 (가족 공유 풀)
 function startRealtimeSync() {
   if (unsubscribeRecipes) return;
   unsubscribeRecipes = db.collection('recipes')
-    .where('ownerId', '==', auth.currentUser.uid)
     .orderBy('updatedAt', 'desc')
     .onSnapshot(snapshot => {
       state.recipes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
