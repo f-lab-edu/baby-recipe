@@ -399,6 +399,32 @@
   </div>
 </div>
 
+<!-- 레시피 선택 모달 (여러 레시피 추출 시) -->
+<div id="recipe-select-modal" class="hidden fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-black/50" onclick="closeRecipeSelectModal()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl px-5 pt-5 pb-10 max-w-lg mx-auto" style="left: max(0px, calc(50% - 240px)); right: max(0px, calc(50% - 240px)); max-height: 80vh; overflow-y: auto;">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h3 class="text-base font-bold text-gray-800 mb-1">레시피 선택</h3>
+    <p id="recipe-select-count" class="text-xs text-gray-500 mb-4"></p>
+    <div id="recipe-select-list" class="space-y-2"></div>
+  </div>
+</div>
+
+<!-- 레시피 선택 모달 (여러 레시피 추출 시) -->
+<div id="recipe-select-modal" class="hidden fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-black/50" onclick="closeRecipeSelectModal()"></div>
+  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl px-5 pt-5 pb-10 max-w-lg mx-auto" style="left: max(0px, calc(50% - 240px)); right: max(0px, calc(50% - 240px)); max-height: 80vh; overflow-y: auto;">
+    <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
+    <h3 class="text-base font-bold text-gray-800 mb-1">레시피 선택</h3>
+    <p id="recipe-select-count" class="text-xs text-gray-500 mb-3"></p>
+    <button onclick="saveAllExtractedRecipes()" class="w-full py-3 rounded-2xl btn-primary text-sm font-semibold mb-4">
+      전체 저장하기
+    </button>
+    <p class="text-xs text-gray-400 mb-3 text-center">또는 하나만 선택해서 편집</p>
+    <div id="recipe-select-list" class="space-y-2"></div>
+  </div>
+</div>
+
 <!-- 닉네임 설정 모달 -->
 <div id="nickname-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-6">
   <div class="bg-white rounded-2xl p-6 w-full max-w-sm">

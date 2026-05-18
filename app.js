@@ -1098,12 +1098,13 @@ async function extractRecipeWithClaude() {
   }
 
   const systemPrompt = `당신은 이유식/유아식 레시피 전문가입니다.
-주어진 내용에서 레시피 정보를 추출하여 아래 JSON 형식으로만 응답하세요.
+주어진 내용에서 레시피 정보를 추출하여 아래 JSON 배열 형식으로만 응답하세요.
+레시피가 여러 개면 모두 추출하고, 하나면 배열에 하나만 넣으세요.
 내용이 한국어가 아니면 한국어로 번역하세요.
 
-{"name":"레시피 이름","cookingTime":"조리시간(숫자만,분)","servings":"분량(예:2회분)","ingredients":[{"name":"재료명","amount":"수량"}],"steps":[{"text":"조리 단계"}],"memo":"메모 또는 팁","tags":["태그1","태그2"]}
+[{"name":"레시피 이름","cookingTime":"조리시간(숫자만,분)","servings":"분량(예:2회분)","ingredients":[{"name":"재료명","amount":"수량"}],"steps":[{"text":"조리 단계"}],"memo":"메모 또는 팁","tags":["태그1","태그2"]}]
 
-정보가 없는 필드는 빈 문자열 또는 빈 배열로 두세요. JSON만 응답하세요.`;
+정보가 없는 필드는 빈 문자열 또는 빈 배열로 두세요. JSON 배열만 응답하세요.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1124,15 +1125,87 @@ async function extractRecipeWithClaude() {
     if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
     const raw = data.content[0].text;
-    const match = raw.match(/\{[\s\S]*\}/);
+    const match = raw.match(/\[[\s\S]*\]/);
     if (!match) throw new Error('JSON 파싱 실패');
-    const recipe = JSON.parse(match[0]);
+    const recipes = JSON.parse(match[0]);
     showExtractLoading(false);
-    fillEditFormWithAI(recipe);
+    if (!Array.isArray(recipes) || recipes.length === 0) throw new Error('레시피 없음');
+    if (recipes.length === 1) {
+      fillEditFormWithAI(recipes[0]);
+    } else {
+      showRecipeSelectModal(recipes);
+    }
   } catch (err) {
     console.error('Claude API 오류:', err);
     toast('레시피 추출에 실패했어요. 다시 시도해주세요.');
     showExtractLoading(false);
+  }
+}
+
+function showRecipeSelectModal(recipes) {
+  document.getElementById('recipe-select-count').textContent = `${recipes.length}개의 레시피가 발견됐어요. 저장할 레시피를 선택해주세요.`;
+  document.getElementById('recipe-select-list').innerHTML = recipes.map((r, i) => `
+    <button onclick="selectExtractedRecipe(${i})" class="w-full flex items-center gap-3 bg-gray-50 active:bg-orange-50 rounded-2xl px-4 py-3 text-left">
+      <span class="text-xl">🍽</span>
+      <div>
+        <div class="text-sm font-semibold text-gray-800">${esc(r.name || '이름 없음')}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${(r.ingredients || []).slice(0, 3).map(i => esc(i.name)).join(', ')}${(r.ingredients || []).length > 3 ? ' 외 ' + ((r.ingredients || []).length - 3) + '가지' : ''}</div>
+      </div>
+    </button>
+  `).join('');
+  state._extractedRecipes = recipes;
+  document.getElementById('recipe-select-modal').classList.remove('hidden');
+}
+
+function closeRecipeSelectModal() {
+  document.getElementById('recipe-select-modal').classList.add('hidden');
+  state._extractedRecipes = null;
+}
+
+function selectExtractedRecipe(index) {
+  const recipe = state._extractedRecipes[index];
+  closeRecipeSelectModal();
+  fillEditFormWithAI(recipe);
+}
+
+async function saveAllExtractedRecipes() {
+  const recipes = state._extractedRecipes;
+  if (!recipes || recipes.length === 0) return;
+  closeRecipeSelectModal();
+  toast(`${recipes.length}개 저장 중...`);
+  try {
+    const batch = db.batch();
+    recipes.forEach(recipe => {
+      const id = uid();
+      const data = {
+        name: recipe.name || '이름 없음',
+        cookingTime: recipe.cookingTime || '',
+        servings: recipe.servings || '',
+        memo: recipe.memo || '',
+        tags: Array.isArray(recipe.tags) ? recipe.tags : [],
+        ingredients: Array.isArray(recipe.ingredients)
+          ? recipe.ingredients.map(i => ({ name: i.name || '', amount: i.amount || '' }))
+          : [],
+        steps: Array.isArray(recipe.steps)
+          ? recipe.steps.map(s => ({ text: typeof s === 'string' ? s : (s.text || ''), photo: '' }))
+          : [],
+        sourceUrl: state.extractSourceUrl || '',
+        coverPhoto: '',
+        isFavorite: false,
+        ownerId: auth.currentUser.uid,
+        ownerNickname: (currentUserProfile && currentUserProfile.nickname) || '',
+        visibility: 'private',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      batch.set(db.collection('recipes').doc(id), data);
+    });
+    await batch.commit();
+    toast(`${recipes.length}개 레시피를 저장했어요 ✓`);
+    goHome();
+  } catch (err) {
+    console.error('일괄 저장 오류:', err);
+    toast('저장에 실패했어요. 다시 시도해주세요.');
   }
 }
 
