@@ -200,6 +200,10 @@ let state = {
   editingRecipe: null,
   viewingRecipeId: null,
   currentIngredients: [],
+  extractTab: 'url',
+  extractSourceUrl: '',
+  extractImageBase64: null,
+  extractImageMediaType: 'image/jpeg',
 };
 
 // ============== 유틸 ==============
@@ -378,6 +382,13 @@ function openDetail(id) {
     <div class="px-5 pt-6">
       <div class="flex flex-wrap gap-2">${tags}</div>
     </div>` : ''}
+    ${r.sourceUrl ? `
+    <div class="px-5 pt-4">
+      <a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-xs text-orange-500 bg-orange-50 rounded-xl px-3 py-2.5">
+        <span>🔗</span>
+        <span class="truncate">원본 보기</span>
+      </a>
+    </div>` : ''}
   `;
   showScreen('detail');
 }
@@ -421,6 +432,7 @@ function openEdit(id = null) {
       steps: [],
       memo: '',
       tags: [],
+      sourceUrl: '',
       isFavorite: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -438,6 +450,7 @@ function renderEditForm() {
   document.getElementById('edit-cooking-time').value = r.cookingTime || '';
   document.getElementById('edit-servings').value = r.servings || '';
   document.getElementById('edit-memo').value = r.memo || '';
+  document.getElementById('edit-source-url').value = r.sourceUrl || '';
 
   if (r.coverPhoto) {
     document.getElementById('cover-preview').src = r.coverPhoto;
@@ -646,6 +659,7 @@ async function saveRecipe() {
   r.cookingTime = document.getElementById('edit-cooking-time').value;
   r.servings = document.getElementById('edit-servings').value.trim();
   r.memo = document.getElementById('edit-memo').value;
+  r.sourceUrl = document.getElementById('edit-source-url').value.trim();
   r.ingredients = r.ingredients.filter(i => i.name.trim());
   r.steps = r.steps.filter(s => s.text.trim() || s.photo);
   r.updatedAt = Date.now();
@@ -944,6 +958,173 @@ async function loadSampleData() {
   } catch (err) {
     toast('추가에 실패했어요');
   }
+}
+
+// ============== 추가 방식 선택 모달 ==============
+function openAddModal() {
+  document.getElementById('add-modal').classList.remove('hidden');
+}
+function closeAddModal() {
+  document.getElementById('add-modal').classList.add('hidden');
+}
+
+// ============== AI 추출 화면 ==============
+function openAiExtract() {
+  closeAddModal();
+  state.extractTab = 'url';
+  state.extractSourceUrl = '';
+  state.extractImageBase64 = null;
+  document.getElementById('extract-url-input').value = '';
+  document.getElementById('extract-text-input').value = '';
+  document.getElementById('extract-image-input').value = '';
+  document.getElementById('extract-image-preview').classList.add('hidden');
+  document.getElementById('extract-image-placeholder').classList.remove('hidden');
+  switchExtractTab('url');
+  showScreen('extract');
+}
+
+function closeExtract() {
+  if (state.viewingRecipeId) openDetail(state.viewingRecipeId);
+  else goHome();
+}
+
+function switchExtractTab(tab) {
+  state.extractTab = tab;
+  ['url', 'text', 'image'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('bg-orange-400', t === tab);
+    document.getElementById(`tab-${t}`).classList.toggle('text-white', t === tab);
+    document.getElementById(`tab-${t}`).classList.toggle('bg-gray-100', t !== tab);
+    document.getElementById(`tab-${t}`).classList.toggle('text-gray-600', t !== tab);
+    document.getElementById(`extract-${t}-panel`).classList.toggle('hidden', t !== tab);
+  });
+}
+
+function handleExtractImage(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  state.extractImageMediaType = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    state.extractImageBase64 = dataUrl.split(',')[1];
+    document.getElementById('extract-image-preview').src = dataUrl;
+    document.getElementById('extract-image-preview').classList.remove('hidden');
+    document.getElementById('extract-image-placeholder').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function showExtractLoading(show) {
+  document.getElementById('extract-loading').classList.toggle('hidden', !show);
+  document.getElementById('extract-btn').disabled = show;
+}
+
+async function fetchUrlContent(url) {
+  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error('fetch 실패');
+  const data = await res.json();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(data.contents, 'text/html');
+  doc.querySelectorAll('script, style, nav, header, footer, aside, iframe').forEach(el => el.remove());
+  return (doc.body?.innerText || '').slice(0, 8000);
+}
+
+async function extractRecipeWithClaude() {
+  const apiKey = window.claudeConfig?.apiKey;
+  if (!apiKey || apiKey === 'YOUR_CLAUDE_API_KEY_HERE') {
+    toast('claude-config.js에 API 키를 설정해주세요');
+    return;
+  }
+
+  const tab = state.extractTab;
+  let userContent;
+  state.extractSourceUrl = '';
+
+  if (tab === 'url') {
+    const url = document.getElementById('extract-url-input').value.trim();
+    if (!url) { toast('URL을 입력해주세요'); return; }
+    showExtractLoading(true);
+    try {
+      const text = await fetchUrlContent(url);
+      if (!text) throw new Error('내용 없음');
+      userContent = `다음은 ${url} 페이지의 내용입니다:\n\n${text}`;
+      state.extractSourceUrl = url;
+    } catch {
+      toast('URL 내용을 가져오지 못했어요. 텍스트 또는 이미지 탭을 이용해주세요.');
+      showExtractLoading(false);
+      return;
+    }
+  } else if (tab === 'text') {
+    const text = document.getElementById('extract-text-input').value.trim();
+    if (!text) { toast('내용을 입력해주세요'); return; }
+    showExtractLoading(true);
+    userContent = text;
+  } else {
+    if (!state.extractImageBase64) { toast('이미지를 선택해주세요'); return; }
+    showExtractLoading(true);
+    userContent = [
+      { type: 'image', source: { type: 'base64', media_type: state.extractImageMediaType, data: state.extractImageBase64 } },
+      { type: 'text', text: '이 이미지에서 레시피 정보를 추출해주세요.' },
+    ];
+  }
+
+  const systemPrompt = `당신은 이유식/유아식 레시피 전문가입니다.
+주어진 내용에서 레시피 정보를 추출하여 아래 JSON 형식으로만 응답하세요.
+내용이 한국어가 아니면 한국어로 번역하세요.
+
+{"name":"레시피 이름","cookingTime":"조리시간(숫자만,분)","servings":"분량(예:2회분)","ingredients":[{"name":"재료명","amount":"수량"}],"steps":[{"text":"조리 단계"}],"memo":"메모 또는 팁","tags":["태그1","태그2"]}
+
+정보가 없는 필드는 빈 문자열 또는 빈 배열로 두세요. JSON만 응답하세요.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }],
+      }),
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    const raw = data.content[0].text;
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('JSON 파싱 실패');
+    const recipe = JSON.parse(match[0]);
+    showExtractLoading(false);
+    fillEditFormWithAI(recipe);
+  } catch (err) {
+    console.error('Claude API 오류:', err);
+    toast('레시피 추출에 실패했어요. 다시 시도해주세요.');
+    showExtractLoading(false);
+  }
+}
+
+function fillEditFormWithAI(recipe) {
+  openEdit();
+  const r = state.editingRecipe;
+  r.name = recipe.name || '';
+  r.cookingTime = recipe.cookingTime || '';
+  r.servings = recipe.servings || '';
+  r.memo = recipe.memo || '';
+  r.tags = Array.isArray(recipe.tags) ? recipe.tags : [];
+  r.ingredients = Array.isArray(recipe.ingredients) && recipe.ingredients.length
+    ? recipe.ingredients.map(i => ({ name: i.name || '', amount: i.amount || '' }))
+    : [];
+  r.steps = Array.isArray(recipe.steps) && recipe.steps.length
+    ? recipe.steps.map(s => ({ text: typeof s === 'string' ? s : (s.text || ''), photo: '' }))
+    : [];
+  r.sourceUrl = state.extractSourceUrl || '';
+  renderEditForm();
+  toast('레시피를 추출했어요! 내용을 확인해주세요 ✓');
 }
 
 // ============== 시작 ==============
