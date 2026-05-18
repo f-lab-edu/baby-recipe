@@ -180,13 +180,11 @@ async function signInWithGoogle() {
   }
   const provider = new firebase.auth.GoogleAuthProvider();
   try {
-    await auth.signInWithRedirect(provider);
+    await auth.signInWithPopup(provider);
   } catch (err) {
-    toast('로그인에 실패했어요');
+    if (err.code !== 'auth/popup-closed-by-user') toast('로그인에 실패했어요');
   }
 }
-
-auth.getRedirectResult().catch(() => {});
 
 async function signOut() {
   if (!confirm('로그아웃 할까요?')) return;
