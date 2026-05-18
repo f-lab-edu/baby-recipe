@@ -235,6 +235,7 @@ function showScreen(name) {
   window.scrollTo(0, 0);
   if (name === 'home') renderHome();
   if (name === 'find') renderFind();
+  if (name === 'settings') updateClaudeApiKeyStatus();
 }
 function goHome() { showScreen('home'); }
 
@@ -960,6 +961,33 @@ async function loadSampleData() {
   }
 }
 
+// ============== Claude API 키 관리 ==============
+function getClaudeApiKey() {
+  return localStorage.getItem('claude_api_key') || window.claudeConfig?.apiKey || '';
+}
+
+function saveClaudeApiKey() {
+  const val = document.getElementById('claude-api-key-input').value.trim();
+  if (!val) { toast('API 키를 입력해주세요'); return; }
+  localStorage.setItem('claude_api_key', val);
+  document.getElementById('claude-api-key-input').value = '';
+  updateClaudeApiKeyStatus();
+  toast('API 키가 저장됐어요');
+}
+
+function updateClaudeApiKeyStatus() {
+  const el = document.getElementById('claude-api-key-status');
+  if (!el) return;
+  const key = localStorage.getItem('claude_api_key');
+  if (key) {
+    el.textContent = `✓ 키 설정됨 (${key.slice(0, 10)}...)`;
+    el.className = 'text-xs text-green-500 mt-2';
+  } else {
+    el.textContent = 'API 키가 없으면 AI 추출 기능을 사용할 수 없어요';
+    el.className = 'text-xs text-gray-400 mt-2';
+  }
+}
+
 // ============== 추가 방식 선택 모달 ==============
 function openAddModal() {
   document.getElementById('add-modal').classList.remove('hidden');
@@ -1031,9 +1059,9 @@ async function fetchUrlContent(url) {
 }
 
 async function extractRecipeWithClaude() {
-  const apiKey = window.claudeConfig?.apiKey;
+  const apiKey = getClaudeApiKey();
   if (!apiKey || apiKey === 'YOUR_CLAUDE_API_KEY_HERE') {
-    toast('claude-config.js에 API 키를 설정해주세요');
+    toast('설정 화면에서 Claude API 키를 입력해주세요');
     return;
   }
 

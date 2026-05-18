@@ -321,6 +321,18 @@
       </button>
     </div>
 
+    <!-- Claude API 키 섹션 -->
+    <div class="px-5 pt-6">
+      <div class="bg-gray-50 rounded-xl px-4 py-4">
+        <div class="text-xs text-gray-500 mb-1">Claude API 키 <span class="text-orange-400">(AI 추출 기능에 필요)</span></div>
+        <div class="flex items-center gap-2 mt-1">
+          <input id="claude-api-key-input" type="password" placeholder="sk-ant-..." class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-800" />
+          <button onclick="saveClaudeApiKey()" class="text-xs text-orange-500 font-medium px-3 py-2 bg-orange-50 rounded-xl">저장</button>
+        </div>
+        <div id="claude-api-key-status" class="text-xs text-gray-400 mt-2"></div>
+      </div>
+    </div>
+
     <!-- 계정 섹션 -->
     <div class="px-5 pt-6 space-y-3">
       <div class="bg-gray-50 rounded-xl px-4 py-4">
