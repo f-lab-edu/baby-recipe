@@ -1,92 +1,115 @@
 # 이유식 노트
 
-아이에게 만들어 준 유아식 레시피를 기록하고, 냉장고에 있는 재료로 만들 수 있는 레시피를 빠르게 찾아볼 수 있는 개인용 웹앱입니다. (Phase 1 MVP)
+SNS, 블로그, 유튜브 등에서 본 유아식 레시피를 URL·텍스트·이미지로 붙여넣으면 Claude AI가 자동으로 레시피를 추출해 저장해주는 웹앱입니다. 가족과 함께 레시피를 공유할 수 있습니다.
 
 ## 파일 구성
 
 ```
-baby-food-recipe-app-src/
-├── index.html    # 앱 구조 (HTML)
-├── styles.css    # 커스텀 스타일 (Tailwind는 CDN)
-├── app.js        # 모든 로직 (상태, 렌더링, 저장)
-└── README.md     # 이 문서
+webapp/
+├── index.html              # 앱 구조 (HTML)
+├── styles.css              # 커스텀 스타일 (Tailwind는 CDN)
+├── app.js                  # 모든 로직 (상태, 렌더링, Firebase, Claude API)
+├── firebase-config.js      # Firebase 설정 (git 제외 — 직접 생성 필요)
+├── firebase-config.example.js  # Firebase 설정 예시
+├── claude-config.js        # Claude API 키 (git 제외 — 직접 생성 필요)
+├── claude-config.example.js    # Claude API 키 예시
+├── manifest.json           # PWA 설정
+├── service-worker.js       # 오프라인 캐시
+└── README.md               # 이 문서
 ```
 
-## 실행 방법
+## 시작하기
 
-### 방법 1: 그냥 열기
-`index.html` 파일을 더블클릭해서 브라우저로 여세요. 바로 동작합니다.
+### 1. Firebase 설정
 
-### 방법 2: 로컬 서버로 열기 (권장)
-`file://`로 열면 일부 브라우저에서 이미지 업로드가 제한될 수 있어요. 아래 중 하나로 로컬 서버를 띄우세요.
+`firebase-config.example.js`를 복사해 `firebase-config.js`를 만들고 Firebase 콘솔에서 발급받은 값을 채웁니다.
+
+```js
+// firebase-config.js
+window.firebaseConfig = {
+  apiKey: "...",
+  authDomain: "...",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "..."
+};
+```
+
+### 2. Claude API 키 설정
+
+`claude-config.example.js`를 복사해 `claude-config.js`를 만들고 API 키를 채웁니다.
+API 키는 [console.anthropic.com](https://console.anthropic.com) → API Keys에서 발급받을 수 있습니다.
+
+```js
+// claude-config.js
+window.claudeConfig = {
+  apiKey: "sk-ant-...",
+};
+```
+
+### 3. 로컬 서버 실행
 
 ```bash
-# Python이 있으면
+# Python
 python3 -m http.server 8000
 
-# Node.js가 있으면
+# Node.js
 npx serve .
 ```
 
-그 후 브라우저에서 `http://localhost:8000` 접속.
+브라우저에서 `http://localhost:8000` 접속 후 Google 로그인.
 
 ## 기능
 
-- 레시피 등록/수정/삭제 (대표 사진, 이름, 조리시간, 분량, 재료, 만드는 순서 단계별 사진, 메모, 태그)
+### AI 레시피 추출 (신규)
+- **URL 입력**: 블로그, 레시피 사이트 URL을 붙여넣으면 내용 자동 추출
+- **텍스트 붙여넣기**: 인스타·틱톡 캡션, 유튜브 자막 등 텍스트 직접 붙여넣기
+- **이미지 업로드**: 스크린샷 이미지를 올리면 Claude Vision으로 레시피 인식
+- 추출 후 편집 폼에 자동으로 채워지며 수정 가능
+- 여러 레시피가 추출될 경우 개별 선택 또는 전체 한꺼번에 저장 가능
+
+### 레시피 관리
+- 레시피 등록/수정/삭제 (대표 사진, 이름, 조리시간, 분량, 재료, 조리순서, 메모, 태그, 원본 링크)
 - 즐겨찾기 토글
 - 검색 (이름 / 재료 / 태그)
 - 필터 (전체 / 즐겨찾기 / 태그별)
 - 재료로 레시피 찾기 (매칭률 %, 부족한 재료 표시)
 - JSON 백업 / 복원
-- 샘플 레시피 3개 불러오기
+- 가족 공유 (로그인한 멤버 전원이 동일한 레시피 풀 공유)
 
 ## 데이터 저장
 
-모든 데이터는 **브라우저의 localStorage**에 저장됩니다. 키는 `baby-food-recipes-v1`.
+모든 데이터는 **Firebase Firestore**에 저장됩니다. 이미지는 **Firebase Storage**에 저장됩니다.
 
-- 다른 기기/브라우저에서 이어서 쓰려면: 설정 → "데이터 내보내기"로 JSON 저장 → 새 기기에서 "데이터 가져오기"
-- 브라우저 데이터 삭제 시 레시피도 함께 사라지니 주기적으로 백업 권장
-- 사진은 자동 리사이즈(대표: 800px, 스텝: 600px)되어 Base64로 저장됨
+- 실시간 동기화: 가족 구성원 모두 같은 레시피를 실시간으로 공유
+- 오프라인 지원: Firestore 캐시로 오프라인 조회 가능
+- 사진은 업로드 시 자동 리사이즈 (대표: 400px, 스텝: 300px)
 
 ## 기술 스택
 
 - HTML + CSS + Vanilla JavaScript (빌드 도구 없음)
 - Tailwind CSS (CDN)
-- localStorage (데이터 저장)
+- Firebase (Authentication · Firestore · Storage)
+- Claude API — Haiku 모델 (AI 레시피 추출, 레시피 1개당 약 3~8원)
 - FileReader + Canvas (이미지 업로드 + 리사이즈)
+- PWA (manifest + service worker)
 
-## 커스터마이징 가이드
+## AI 추출 소스별 안내
 
-### 색상 바꾸기
-`styles.css`의 `.btn-primary`, `.fab`, `.tag-chip`의 색상값(`#ff9a5a`, `#ff7a3c`, `#fef3e8`, `#c2691d`)을 원하는 색으로 변경.
+| 소스 | 방법 |
+|------|------|
+| 블로그, 레시피 사이트 | URL 탭에 링크 붙여넣기 |
+| 유튜브 | URL 탭에 링크 붙여넣기 |
+| 인스타그램, 틱톡 | 텍스트 탭에 캡션 복사 또는 이미지 탭에 스크린샷 업로드 |
 
-### 샘플 레시피 바꾸기
-`app.js`의 `loadSampleData()` 함수 안 `samples` 배열을 수정.
+## 확장 방향 (Phase 3 이후)
 
-### 화면 너비 바꾸기
-`styles.css`의 `.app-container`의 `max-width: 480px`를 조정.
-
-### 태그 자동 제안 기준 바꾸기
-`app.js`의 `renderIngredientSuggestions()`에서 `.slice(0, 6)`의 숫자를 바꾸면 제안 개수 변경.
-
-## 확장 방향 (Phase 2 이후)
-
-요구사항 문서에 따른 다음 단계:
-- 서버/DB 도입 (Supabase 또는 Next.js + Postgres)
-- 사용자 계정 (회원가입/로그인)
 - 레시피 공개/비공개 설정
-- 다른 사용자의 공개 레시피 탐색(Explore)
-- 레시피 스크랩 / 복사
+- 다른 가족의 공개 레시피 탐색(Explore)
+- 레시피 스크랩 / 복사(포크)
+- 작성자 페이지
 - 신고 기능
-
-Phase 2 이후로 가려면 vanilla JS보다 React/Next.js로 재작성하는 편이 유지보수 측면에서 유리합니다.
-
-## 제한 사항
-
-- **브라우저 저장 용량** 한계로 사진을 수백 장 넣으면 저장이 실패할 수 있음
-- **오프라인 지원 미구현** (PWA 설정 필요, Phase 4 예정)
-- **다중 사용자 불가** (Phase 2에서 추가)
-- 데이터 복원은 "추가" 방식만 제공 (덮어쓰기는 "모두 삭제" 후 "가져오기")
 
 ## 라이선스
 
